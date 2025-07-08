@@ -17,15 +17,15 @@ class RollType(Enum):
 
 class ModifierDie(Enum):
     """Advantage/Disadvantage die type."""
-    D6 = auto()
-    D8 = auto()
-    D10 = auto()
+    D6 = 6
+    D8 = 8
+    D10 = 10
 
 
 class HopeDie(Enum):
     """Type of the hope die to be rolled."""
-    D12 = auto()
-    D20 = auto()
+    D12 = 12
+    D20 = 20
 
 
 @dataclass
@@ -43,7 +43,7 @@ class _RollResult:
     """Dataclass of the results of a roll."""
     hope_value: int
     fear_value: int
-    hope_die: HopeDie
+    hope_die: int
     modifier_value: int
     modifier_die: ModifierDie
     base_modifier: int
@@ -141,7 +141,7 @@ def _roll_duality(roll: _RollData) -> _RollResult:
     return _RollResult(
         hope_value=hope_roll,
         fear_value=fear_roll,
-        hope_die=roll.hope_die,
+        hope_die=roll.hope_die.value,
         modifier_value=modifier_value,
         modifier_die=roll.modifier_die,
         base_modifier=roll.base_modifier,
