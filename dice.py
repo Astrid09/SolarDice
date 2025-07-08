@@ -1,7 +1,7 @@
 """Dice functionality and Classes.
 
 Example:
-    foo = roll_duality(...)
+    foo = get_roll_from_message("dd12+3")
 """
 
 from random import randint
@@ -29,7 +29,7 @@ class HopeDie(Enum):
 
 
 @dataclass
-class RollData:
+class _RollData:
     """Dataclass of a roll and all of it's fields."""
     base_modifier: int
     roll_type: RollType
@@ -38,29 +38,67 @@ class RollData:
     amount: int
 
 
-def roll_duality(base_modifier: int, roll_type: RollType, hope_die: HopeDie,
-                 modifier_die: ModifierDie) -> str:
+@dataclass
+class _RollResult:
+    """Dataclass of the results of a roll."""
+    hope_value: int
+    fear_value: int
+    hope_die: HopeDie
+    modifier_value: int
+    modifier_die: ModifierDie
+    base_modifier: int
+
+    def __str__(self) -> str:
+        roll_aligment: str
+        if self.hope_value == self.fear_value:
+            result: int = self.hope_value + self.fear_value
+
+            return (f"`Rolagem Crítica!` (**{result}**) ⟵ [**{self.hope_value}**] Esperança "
+                    f"(d{self.hope_value}) = [**{self.fear_value}**] Medo (d12)")
+        elif self.hope_value > self.fear_value:
+            roll_aligment = "Esperança"
+        else:
+            roll_aligment = "Medo"
+
+        roll_value: int = (
+            self.fear_value + self.hope_value + self.modifier_value + self.base_modifier
+        )
+        roll_text: str = (f"`{roll_value} com {roll_aligment}` "
+                        f"⟵ [**{self.hope_value}**] Esperança (d{self.hope_value}) + "
+                        f"[**{self.fear_value}**] Medo (d12)")
+
+        if self.modifier_value > 0:
+            roll_text += f" + [**{self.modifier_value}**] Vantagem (d{self.modifier_die})"
+        elif self.modifier_value < 0:
+            roll_text += f" - [**{abs(self.modifier_value)}**] Desvantagem (d{self.modifier_die})"
+
+        if self.base_modifier > 0:
+            roll_text += f" + **{self.base_modifier}**"
+        elif self.base_modifier < 0:
+            roll_text += f" - **{abs(self.base_modifier)}**"
+
+        return roll_text
+
+
+def _roll_duality(roll: _RollData) -> _RollResult:
     """Roll duality dice and returns a result string.
 
     Args:
-        base_modifier (int): Modifier for the roll.
-        roll_type (RollType): Type of the roll. (Normal, Advantage, Disadvantage)
-        hope_die (HopeDie): Value of the hope die.
-        modifier_die (ModifierDie): Value of the Advantage/Disadvantage die.
+        roll (RollData): The data for the roll.
 
     Raises:
-        ValueError: _description_
-        ValueError: _description_
-        ValueError: _description_
+        ValueError: If hope dice type doesn't exist.
+        ValueError: If modifier dice type doesn't exist.
+        ValueError: If roll type doesn't exist.
 
     Returns:
-        str: The result of the roll to be printed.
+        RollResult: The result of the roll to be parsed.
     """
 
     fear_roll: int = randint(1, 12)
 
     hope_die_value: int
-    match hope_die:
+    match roll.hope_die:
         case HopeDie.D12:
             hope_die_value = 12
 
@@ -73,7 +111,7 @@ def roll_duality(base_modifier: int, roll_type: RollType, hope_die: HopeDie,
     hope_roll: int = randint(1, hope_die_value)
 
     modifier_die_type: int
-    match modifier_die:
+    match roll.modifier_die:
         case ModifierDie.D6:
             modifier_die_type = 6
 
@@ -86,55 +124,38 @@ def roll_duality(base_modifier: int, roll_type: RollType, hope_die: HopeDie,
         case _:
             raise ValueError("Modifier dice type doesn't exist.")
 
-    modifier_type: int
-    match roll_type:
+    modifier_value: int
+    match roll.roll_type:
         case RollType.ADVANTAGE:
-            modifier_type = randint(1, modifier_die_type)
+            modifier_value = randint(1, modifier_die_type)
 
         case RollType.DISADVANTAGE:
-            modifier_type = -randint(1, modifier_die_type)
+            modifier_value = -randint(1, modifier_die_type)
 
         case RollType.NORMAL:
-            modifier_type = 0
+            modifier_value = 0
 
         case _:
             raise ValueError("Roll type doesn't exist.")
 
-    roll_aligment: str
-    if hope_roll == fear_roll:
-        return (f"`Rolagem Crítica!` (**{hope_roll + fear_roll}**) ⟵ [**{hope_roll}**] Esperança "
-                f"(d{hope_die_value}) = [**{fear_roll}**] Medo (d12)")
-    elif hope_roll > fear_roll:
-        roll_aligment = "Esperança"
-    else:
-        roll_aligment = "Medo"
-
-    roll_value: int = fear_roll + hope_roll + modifier_type + base_modifier
-    roll_text: str = (f"`{roll_value} com {roll_aligment}` "
-                      f"⟵ [**{hope_roll}**] Esperança (d{hope_die_value}) + "
-                      f"[**{fear_roll}**] Medo (d12)")
-
-    if modifier_type > 0:
-        roll_text += f" + [**{modifier_type}**] Vantagem (d{modifier_die_type})"
-    elif modifier_type < 0:
-        roll_text += f" - [**{abs(modifier_type)}**] Desvantagem (d{modifier_die_type})"
-
-    if base_modifier > 0:
-        roll_text += f" + **{base_modifier}**"
-    elif base_modifier < 0:
-        roll_text += f" - **{abs(base_modifier)}**"
-
-    return roll_text
+    return _RollResult(
+        hope_value=hope_roll,
+        fear_value=fear_roll,
+        hope_die=roll.hope_die,
+        modifier_value=modifier_value,
+        modifier_die=roll.modifier_die,
+        base_modifier=roll.base_modifier,
+    )
 
 
-def roll_from_message(message: str) -> RollData | None:
-    """Generates RollData based on a message. RollData should then be used in roll_dice()
+def _roll_data_from_message(message: str) -> _RollData | None:
+    """Creates a RollData from a message
 
     Args:
-        message (str): The message to be turned into RollData
+        message (str): The message to be turned into a roll.
 
     Returns:
-        RollData | None: The RollData if it could be generated
+        RollData|None: The RollData or None if the message was not a roll.
     """
     modifier: int = 0
     hope_die: HopeDie
@@ -145,13 +166,16 @@ def roll_from_message(message: str) -> RollData | None:
 
     if raw_message == "dd":
         # return roll_duality(0, RollTypes.NORMAL.value, HopeDice.D12.value, ModifierDice.D6.value)
-        return RollData(
+        return _RollData(
             base_modifier=0,
             roll_type=RollType.NORMAL,
             hope_die=HopeDie.D12,
             modifier_die=ModifierDie.D6,
             amount=1,
         )
+
+    if raw_message[0:2] != "dd":
+        return None
 
     sliced_message: list[str] = raw_message.split("#")
 
@@ -163,9 +187,6 @@ def roll_from_message(message: str) -> RollData | None:
 
     if len(sliced_message) != 1:
         raw_message = sliced_message[1]
-
-    if raw_message[0:2] != "dd":
-        return None
 
     match raw_message[2:4]:
         case "12":
@@ -212,7 +233,7 @@ def roll_from_message(message: str) -> RollData | None:
                 pass
 
     # return roll_multiple(modifier, roll_type, hope_die, modifier_die, roll_number)
-    return RollData(
+    return _RollData(
         base_modifier=modifier,
         roll_type=roll_type,
         hope_die=hope_die,
@@ -221,26 +242,47 @@ def roll_from_message(message: str) -> RollData | None:
     )
 
 
-def roll_multiple(roll: RollData) -> str:
+def _roll_multiple(roll: _RollData) -> list[_RollResult]:
     """Rolls duality based on RollData, can support mutiple rolls.
 
     Args:
         roll (RollData): The roll arguments data.
 
     Returns:
-        str: The result of the roll to be printed.
+        list[RollResult]: The list of results of the rolls.
     """
-    roll_message: str = ""
-    
-    if roll.amount == 1:
-        return roll_duality(roll.base_modifier, roll.roll_type, roll.hope_die, roll.modifier_die)
-    
-    
-    for i in range(roll.amount):
-        roll_message += f"{i+1}. {roll_duality(roll.base_modifier, roll.roll_type, roll.hope_die, roll.modifier_die)}\n"
-    
-    return roll_message
- 
+    rolls: list[_RollResult] = []
+
+    for _ in range(roll.amount):
+        rolls.append(_roll_duality(roll))
+
+    return rolls
+
+def get_roll_from_message(message: str) -> str | None:
+    """Returns the message to be printed based on a roll message.
+
+    Args:
+        message (str): The message to be turned into a roll.
+
+    Returns:
+        str|None: The message to be printed of the roll.
+    """
+    roll_data: _RollData | None = _roll_data_from_message(message)
+
+    if not roll_data:
+        return None
+
+    if roll_data.amount == 1:
+        return str(_roll_duality(roll_data))
+
+    rolls = _roll_multiple(roll_data)
+
+    result: str = ""
+    for i, roll in enumerate(rolls):
+        result += f"{i}. {roll}"
+
+    return result
+
 
 if __name__ == "__main__":
-    pass
+    print(get_roll_from_message("dd"))
