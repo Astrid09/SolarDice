@@ -64,7 +64,7 @@ class _RollResult:
             self.fear_value + self.hope_value + self.modifier_value + self.base_modifier
         )
         roll_text: str = (f"`{roll_value} com {roll_aligment}` "
-                        f"⟵ [**{self.hope_value}**] Esperança (d{self.hope_value}) + "
+                        f"⟵ [**{self.hope_value}**] Esperança (d{self.hope_die}) + "
                         f"[**{self.fear_value}**] Medo (d12)")
 
         if self.modifier_value > 0:
