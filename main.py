@@ -21,6 +21,11 @@ bot = bot.Bot(intents=intents)
 @default_permissions(administrator=True)
 @guild_only()
 async def hello_world(ctx: ApplicationContext):
+    """Testing hello world slash command.
+
+    Args:
+        ctx (ApplicationContext): The command context.
+    """
     await ctx.respond("Hello World!")
 
 bot.run(DISCORD_KEY)
